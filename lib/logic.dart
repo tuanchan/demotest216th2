@@ -527,6 +527,10 @@ class AppLogic extends ChangeNotifier {
   double convertProgress = 0.0; // 0..1
   String convertLabel = '';
 
+  // NEW: backup/restore state
+  bool isBackingUp = false;
+  bool isRestoring = false;
+
   // NEW: theme config storage
   static const _kPrefThemeConfig = 'settings.themeConfig.v1';
 
@@ -614,12 +618,25 @@ class AppLogic extends ChangeNotifier {
       ),
     );
 
+    // Listen to mediaItem changes (from audio_service)
     _mediaItemSub = handler.mediaItem.listen((mi) {
       if (mi == null) return;
       final i = library.indexWhere((t) => t.id == mi.id);
       if (i >= 0) {
         _current = library[i];
         notifyListeners();
+      }
+    });
+
+    // ✅ FIX: Also listen to player's currentIndex directly to catch auto-next
+    handler.player.currentIndexStream.listen((idx) {
+      if (idx == null) return;
+      if (idx >= 0 && idx < library.length) {
+        final track = library[idx];
+        if (_current?.id != track.id) {
+          _current = track;
+          notifyListeners();
+        }
       }
     });
 
@@ -1756,6 +1773,11 @@ class AppLogic extends ChangeNotifier {
   /// BACKUP → EXPORT ZIP (STREAMING VERSION)
   /// ===============================
   Future<String?> exportLibraryToZip() async {
+    if (isBackingUp) return 'Đang backup, vui lòng chờ...';
+
+    isBackingUp = true;
+    notifyListeners();
+
     try {
       final root = Directory(_rootDir.path);
       if (!await root.exists()) return 'Không tìm thấy dữ liệu';
@@ -1792,6 +1814,9 @@ class AppLogic extends ChangeNotifier {
       return exportPath;
     } catch (e) {
       return e.toString();
+    } finally {
+      isBackingUp = false;
+      notifyListeners();
     }
   }
 
@@ -1802,6 +1827,11 @@ class AppLogic extends ChangeNotifier {
   /// RESTORE → IMPORT ZIP (FIX: đóng DB/player trước khi xoá rootDir để tránh crash/white screen)
   /// ===============================
   Future<String?> importLibraryFromZip() async {
+    if (isRestoring) return 'Đang restore, vui lòng chờ...';
+
+    isRestoring = true;
+    notifyListeners();
+
     File? lock;
     Directory? tmpDir;
     Directory? oldDir;
@@ -1926,6 +1956,9 @@ class AppLogic extends ChangeNotifier {
           await tmpDir.delete(recursive: true);
         }
       } catch (_) {}
+
+      isRestoring = false;
+      notifyListeners();
     }
   }
 

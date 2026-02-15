@@ -1,6 +1,6 @@
 // app.dart
 // app.dart - CẬP NHẬT: THEME CONFIG A→Z (đổi mọi màu/font), GIỮ NGUYÊN UI/LAYOUT,
-// VISUALIZER TO HƠN + STICKY HEROCARD
+// VISUALIZER TO HƠN + STICKY HEROCARD + LOADING UI CHO BACKUP/RESTORE
 import 'package:archive/archive.dart';
 import 'dart:io';
 import 'dart:math' as math;
@@ -1343,7 +1343,7 @@ class _FavoriteSegmentsSheet extends StatelessWidget {
 }
 
 /// ===============================
-/// SETTINGS - THÊM “THEME A→Z” (đổi mọi token màu + font)
+/// SETTINGS - THÊM "THEME A→Z" (đổi mọi token màu + font) + LOADING UI CHO BACKUP/RESTORE
 /// GIỮ NGUYÊN layout phần Setting hiện có (theme mode + title),
 /// chỉ THÊM 1 Card mới phía dưới.
 /// ===============================
@@ -1465,6 +1465,7 @@ class _SettingsPageState extends State<_SettingsPage> {
         ),
         const SizedBox(height: 12),
 
+        // ✅ BACKUP & RESTORE CARD WITH LOADING UI
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -1488,16 +1489,43 @@ class _SettingsPageState extends State<_SettingsPage> {
                   icon: const Icon(Icons.archive_rounded),
                   label: const Text('Xuất backup (.zip)'),
                   onPressed: () async {
-                    final path = await widget.logic.exportLibraryToZip();
-                    if (!context.mounted) return;
+                    // Show loading dialog
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => PopScope(
+                        canPop: false,
+                        child: const AlertDialog(
+                          content: Row(
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(width: 20),
+                              Expanded(child: Text('Đang tạo backup...')),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
 
-                    if (path == null) {
+                    final path = await widget.logic.exportLibraryToZip();
+
+                    if (!context.mounted) return;
+                    Navigator.pop(context); // Close loading dialog
+
+                    if (path == null || path.startsWith('Đ')) {
+                      // Error
                       ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Backup lỗi')));
+                        SnackBar(content: Text(path ?? 'Backup lỗi')),
+                      );
                       return;
                     }
 
-                    // 🔥 MỞ SHARE SHEET iOS (AirDrop, Files, Zalo, v.v.)
+                    // Success - show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Backup xong')),
+                    );
+
+                    // Open share sheet
                     await Share.shareXFiles(
                       [XFile(path)],
                       text: 'Backup thư viện nhạc',
@@ -1509,14 +1537,40 @@ class _SettingsPageState extends State<_SettingsPage> {
                   icon: const Icon(Icons.download_rounded),
                   label: const Text('Import backup'),
                   onPressed: () async {
-                    final err = await widget.logic.importLibraryFromZip();
-                    if (!context.mounted) return;
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(err ?? 'Khôi phục thành công'),
+                    // Show loading dialog
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => PopScope(
+                        canPop: false,
+                        child: const AlertDialog(
+                          content: Row(
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(width: 20),
+                              Expanded(child: Text('Đang khôi phục...')),
+                            ],
+                          ),
+                        ),
                       ),
                     );
+
+                    final err = await widget.logic.importLibraryFromZip();
+
+                    if (!context.mounted) return;
+                    Navigator.pop(context); // Close loading dialog
+
+                    if (err == null) {
+                      // Success
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Restore xong')),
+                      );
+                    } else {
+                      // Error
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(err)),
+                      );
+                    }
                   },
                 ),
               ],
