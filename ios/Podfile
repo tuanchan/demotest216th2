@@ -25,27 +25,20 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks! :linkage => :static
-  use_modular_headers!
-
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   
-  # CRITICAL: Explicitly declare Share Extension as embedded target
   target 'Share Extension' do
-    inherit! :search_paths   
+    inherit! :search_paths
+    pod 'receive_sharing_intent', :path => '.symlinks/plugins/receive_sharing_intent/ios'
   end
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-    
     target.build_configurations.each do |config|
-      # Disable script sandboxing for CocoaPods
-      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
-      
-      # Ensure deployment target
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['APPLICATION_EXTENSION_API_ONLY'] = 'NO'
     end
   end
 end
