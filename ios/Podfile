@@ -32,7 +32,7 @@ target 'Runner' do
   
   # CRITICAL: Explicitly declare Share Extension as embedded target
   target 'Share Extension' do
-    inherit! :complete
+    inherit! :search_paths   
   end
 end
 
