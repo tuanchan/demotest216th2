@@ -214,6 +214,7 @@
 				8072EBC42B6191600035633A /* Sources */,
 				
 				8072EBC62B6191600035633A /* Resources */,
+
 			);
 			buildRules = (
 			);
@@ -308,14 +309,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		8072EBC62B6191600035633A /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				8072EBCE2B6191600035633A /* MainInterface.storyboard in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+		
 		8072EC062B714FDD0035633A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
