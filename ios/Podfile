@@ -1,3 +1,5 @@
+# ios/Podfile  (FULL — chỉ sửa lỗi host target cho Share Extension)
+
 platform :ios, '16.0'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -31,15 +33,14 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # ✅ Share Extension must be a child of Runner (host target)
+  target 'Share Extension' do
+    use_frameworks! :linkage => :static
+    inherit! :search_paths
+    $app_extension = true
+  end
 end
-
-# ✅ Share Extension target must inherit pods search paths
-target 'Share Extension' do
-  use_frameworks! :linkage => :static
-  inherit! :search_paths
-end
-
-
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
