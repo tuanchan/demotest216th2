@@ -309,7 +309,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		
+				8072EBC62B6191600035633A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
 		8072EC062B714FDD0035633A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
