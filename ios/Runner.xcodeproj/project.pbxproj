@@ -12,7 +12,7 @@
 		504BE6B2CE03F41B7D7E8984 /* Pods_Share_Extension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51C3942338DC6F9F1BCEAD0E /* Pods_Share_Extension.framework */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		8072EBCB2B6191600035633A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8072EBCA2B6191600035633A /* ShareViewController.swift */; };
-		8072EBCE2B6191600035633A /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8072EBCC2B6191600035633A /* MainInterface.storyboard */; };
+		
 		8072EBD22B6191600035633A /* Share Extension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 8072EBC82B6191600035633A /* Share Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		8072EC0A2B714FDD0035633A /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8072EC092B714FDD0035633A /* UniformTypeIdentifiers.framework */; };
 		8072EC0D2B714FDD0035633A /* Media.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8072EC0C2B714FDD0035633A /* Media.xcassets */; };
@@ -210,9 +210,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8072EBD32B6191610035633A /* Build configuration list for PBXNativeTarget "Share Extension" */;
 			buildPhases = (
-				725679BAA4E825C5A1BEB9CB /* [CP] Check Pods Manifest.lock */,
+				
 				8072EBC42B6191600035633A /* Sources */,
-				8072EBC52B6191600035633A /* Frameworks */,
+				
 				8072EBC62B6191600035633A /* Resources */,
 			);
 			buildRules = (
@@ -255,13 +255,12 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				33B7E07422A04C9A00AD965C /* Embed App Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
-				FFCA5D2058FD70F444149D13 /* [CP] Embed Pods Frameworks */,
+				
 			);
 			buildRules = (
 			);
 			dependencies = (
-				8072EBD12B6191600035633A /* PBXTargetDependency */,
-				8072EC152B714FDD0035633A /* PBXTargetDependency */,
+				
 			);
 			name = Runner;
 			productName = Runner;
@@ -302,7 +301,7 @@
 			projectRoot = "";
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
-				331C8080294A63A400263BE5 /* RunnerTests */,
+				
 				8072EBC72B6191600035633A /* Share Extension */,
 			);
 		};
