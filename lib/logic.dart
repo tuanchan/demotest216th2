@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
@@ -233,7 +234,7 @@ class ThemeConfig {
     'visualizerBar',
   ];
 
-  /// Typography knobs (mà anh nói “font chữ header...”).
+  /// Typography knobs (mà anh nói "font chữ header...").
   /// Không đổi UI layout, chỉ đổi font family/weight/size tokens từ ThemeData.
   final String? fontFamily;
   final double? headerScale; // 1.0 default
@@ -1176,7 +1177,7 @@ class AppLogic extends ChangeNotifier {
           if (inputDurationMs != null && inputDurationMs! > 0) {
             convertProgress = (t / inputDurationMs!).clamp(0.0, 0.999);
           } else {
-            // chưa có duration -> chỉ “nhúc nhích” để UI có cảm giác đang chạy
+            // chưa có duration -> chỉ "nhúc nhích" để UI có cảm giác đang chạy
             convertProgress = (convertProgress + 0.01).clamp(0.0, 0.95);
           }
           notifyListeners();
@@ -1188,7 +1189,7 @@ class AppLogic extends ChangeNotifier {
       return e.toString();
     } finally {
       isConvertingVideo = false;
-      // convertLabel giữ lại để UI kịp show “Hoàn tất” 1 nhịp (tuỳ anh)
+      // convertLabel giữ lại để UI kịp show "Hoàn tất" 1 nhịp (tuỳ anh)
       notifyListeners();
     }
   }
@@ -1752,44 +1753,42 @@ class AppLogic extends ChangeNotifier {
   }
 
   /// ===============================
-  /// BACKUP → EXPORT ZIP
+  /// BACKUP → EXPORT ZIP (STREAMING VERSION)
   /// ===============================
   Future<String?> exportLibraryToZip() async {
     try {
-      final archive = Archive();
-
       final root = Directory(_rootDir.path);
       if (!await root.exists()) return 'Không tìm thấy dữ liệu';
 
-      final files = root.listSync(recursive: true, followLinks: false);
-
-      for (final f in files) {
-        if (f is File) {
-          // ✅ FIX 1: Bỏ qua các file .zip cũ trong rootDir (tránh zip chứa chính nó)
-          final ext = p.extension(f.path).toLowerCase();
-          if (ext == '.zip') continue;
-
-          // ✅ FIX 2: Bỏ qua restore lock nếu còn sót
-          final name = p.basename(f.path);
-          if (name == '.restore_lock') continue;
-
-          final rel = p.relative(f.path, from: _rootDir.path);
-          final bytes = await f.readAsBytes();
-          archive.addFile(ArchiveFile(rel, bytes.length, bytes));
-        }
-      }
-
-      final zipData = ZipEncoder().encode(archive);
-      if (zipData == null) return 'Không thể tạo file zip';
-
-      // ✅ FIX 3: Lưu zip ra NGOÀI rootDir (temp rồi share, không lưu trong rootDir)
+      // Save to temporary directory instead of rootDir to avoid self-inclusion
       final tmpDir = await getTemporaryDirectory();
       final exportPath = p.join(
         tmpDir.path,
         'backup_${DateTime.now().millisecondsSinceEpoch}.zip',
       );
 
-      await File(exportPath).writeAsBytes(zipData);
+      // Create streaming encoder
+      final encoder = ZipFileEncoder();
+      encoder.create(exportPath);
+
+      final files = root.listSync(recursive: true, followLinks: false);
+
+      for (final f in files) {
+        if (f is File) {
+          // Skip .zip files
+          final ext = p.extension(f.path).toLowerCase();
+          if (ext == '.zip') continue;
+
+          // Skip restore lock
+          final name = p.basename(f.path);
+          if (name == '.restore_lock') continue;
+
+          final rel = p.relative(f.path, from: _rootDir.path);
+          encoder.addFile(f, rel);
+        }
+      }
+
+      encoder.close();
       return exportPath;
     } catch (e) {
       return e.toString();
@@ -1899,6 +1898,9 @@ class AppLogic extends ChangeNotifier {
 
       // ✅ FIX: Rebuild absolute paths trước (Documents path có thể thay đổi trên iOS)
       await _rebuildAbsolutePathsAfterRestore();
+
+      // ✅ NEW: Recompute signatures after restore
+      await _recomputeSignaturesAfterRestore();
 
       await _loadAllFromDb();
       await _removeTracksWithMissingFiles();
@@ -2025,6 +2027,39 @@ class AppLogic extends ChangeNotifier {
     }
   }
 
+  /// ✅ NEW: Recompute signatures after restore to match actual file sizes
+  Future<void> _recomputeSignaturesAfterRestore() async {
+    final db = _db!;
+    final tracks = await db.query('tracks');
+
+    for (final row in tracks) {
+      final id = row['id'] as String;
+      final localPath = row['localPath'] as String? ?? '';
+      final currentSig = row['signature'] as String? ?? '';
+
+      if (localPath.isEmpty) continue;
+
+      try {
+        final file = File(localPath);
+        if (!await file.exists()) continue;
+
+        final stat = await file.stat();
+        final newSig = '${p.basename(localPath)}::${stat.size}';
+
+        if (newSig != currentSig) {
+          await db.update(
+            'tracks',
+            {'signature': newSig},
+            where: 'id=?',
+            whereArgs: [id],
+          );
+        }
+      } catch (e) {
+        debugPrint('_recomputeSignaturesAfterRestore error for track $id: $e');
+      }
+    }
+  }
+
   /// ✅ NEW: Xoá track khỏi DB nếu file audio không còn tồn tại
   Future<void> _removeTracksWithMissingFiles() async {
     final db = _db!;
@@ -2048,7 +2083,7 @@ class AppLogic extends ChangeNotifier {
     }
   }
 
-  /// Helper: đóng mọi thứ trước khi restore để không “giữ tay” vào file cũ
+  /// Helper: đóng mọi thứ trước khi restore để không "giữ tay" vào file cũ
   Future<void> _teardownBeforeRestore() async {
     _saveTimer?.cancel();
     _saveTimer = null;
