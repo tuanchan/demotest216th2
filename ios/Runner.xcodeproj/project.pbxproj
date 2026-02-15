@@ -17,7 +17,7 @@
 		8072EC0A2B714FDD0035633A /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8072EC092B714FDD0035633A /* UniformTypeIdentifiers.framework */; };
 		8072EC0D2B714FDD0035633A /* Media.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8072EC0C2B714FDD0035633A /* Media.xcassets */; };
 		8072EC0F2B714FDD0035633A /* ActionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8072EC0E2B714FDD0035633A /* ActionViewController.swift */; };
-		8072EC122B714FDD0035633A /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8072EC102B714FDD0035633A /* MainInterface.storyboard */; };
+		8072EC122B714FDD0035633A /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; };
 		8072EC162B714FDD0035633A /* ActionExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 8072EC082B714FDD0035633A /* ActionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		9740EEB41CF90195004384FC /* Debug.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 9740EEB21CF90195004384FC /* Debug.xcconfig */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
@@ -125,23 +125,13 @@
 			children = (
 				8072EBD72B61937D0035633A /* Share Extension.entitlements */,
 				8072EBCA2B6191600035633A /* ShareViewController.swift */,
-				8072EBCC2B6191600035633A /* MainInterface.storyboard */,
+				
 				8072EBCF2B6191600035633A /* Info.plist */,
 			);
 			path = "Share Extension";
 			sourceTree = "<group>";
 		};
-		8072EC0B2B714FDD0035633A /* ActionExtension */ = {
-			isa = PBXGroup;
-			children = (
-				8072EC0C2B714FDD0035633A /* Media.xcassets */,
-				8072EC0E2B714FDD0035633A /* ActionViewController.swift */,
-				8072EC102B714FDD0035633A /* MainInterface.storyboard */,
-				8072EC132B714FDD0035633A /* Info.plist */,
-			);
-			path = ActionExtension;
-			sourceTree = "<group>";
-		};
+		
 		9740EEB11CF90186004384FC /* Flutter */ = {
 			isa = PBXGroup;
 			children = (
@@ -159,7 +149,7 @@
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				8072EBC92B6191600035633A /* Share Extension */,
-				8072EC0B2B714FDD0035633A /* ActionExtension */,
+				
 				97C146EF1CF9000F007C117D /* Products */,
 				C8C487198026609B8111606A /* Pods */,
 				7FF43440B53BF39933AB4BFD /* Frameworks */,
@@ -246,8 +236,10 @@
 			);
 			dependencies = (
 			);
-			name = ActionExtension;
-			productName = ActionExtension;
+			
+
+
+			
 			productReference = 8072EC082B714FDD0035633A /* ActionExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
@@ -255,7 +247,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
-				823EBC6B0509CD2FFDEC986A /* [CP] Check Pods Manifest.lock */,
+				
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,

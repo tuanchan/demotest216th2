@@ -39,11 +39,7 @@ target 'Share Extension' do
   inherit! :search_paths
 end
 
-# ✅ Nếu anh giữ ActionExtension thì để lại, không thì xóa block này
-target 'ActionExtension' do
-  use_frameworks! :linkage => :static
-  inherit! :search_paths
-end
+
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
