@@ -31,12 +31,8 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# THAY ĐỔI DUY NHẤT: Di chuyển Share Extension RA NGOÀI target 'Runner'
-target 'Share Extension' do
-  inherit! :search_paths
-  use_frameworks! :linkage => :static
-  $app_extension = true
-end
+# XÓA HOÀN TOÀN target 'Share Extension' ra khỏi Podfile
+# Share Extension sẽ KHÔNG dùng CocoaPods
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
