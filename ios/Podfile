@@ -29,12 +29,13 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
 
-  target 'Share Extension' do
-    inherit! :search_paths
-    use_frameworks! :linkage => :static
-    $app_extension = true
-  end
+# THAY ĐỔI DUY NHẤT: Di chuyển Share Extension RA NGOÀI target 'Runner'
+target 'Share Extension' do
+  inherit! :search_paths
+  use_frameworks! :linkage => :static
+  $app_extension = true
 end
 
 post_install do |installer|
