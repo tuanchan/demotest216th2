@@ -1,6 +1,7 @@
 // app.dart
 // app.dart - CẬP NHẬT: THEME CONFIG A→Z (đổi mọi màu/font), GIỮ NGUYÊN UI/LAYOUT,
 // VISUALIZER TO HƠN + STICKY HEROCARD + LOADING UI CHO BACKUP/RESTORE
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:archive/archive.dart';
 import 'dart:io';
 import 'dart:math' as math;
@@ -8,6 +9,7 @@ import 'dart:ui';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'dart:async';
 
 import 'logic.dart';
 
@@ -21,18 +23,127 @@ class AppRoot extends StatefulWidget {
 
 class _AppRootState extends State<AppRoot> {
   int _tab = 0;
+StreamSubscription<List<SharedMediaFile>>? _shareSub;
+bool _handledInitialShare = false;
+Future<void> _handleIncomingShared(List<SharedMediaFile> files) async {
+  if (files.isEmpty) return;
+
+  // chỉ lấy file path
+  final paths = <String>[];
+  for (final f in files) {
+    final pth = f.path;
+    if (pth.trim().isNotEmpty) paths.add(pth);
+  }
+  if (paths.isEmpty) return;
+
+  // Import vào library trước
+  final res = await widget.logic.importSharedFiles(paths);
+  if (!mounted) return;
+
+  if (res.importedTrackIds.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Không có file mới để thêm')),
+    );
+    return;
+  }
+
+  // Nếu chưa có playlist nào -> lưu library là xong (theo yêu cầu anh)
+  if (widget.logic.playlists.where((p) => !p.isSpecial).isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Đã thêm ${res.importedTrackIds.length} file vào thư viện')),
+    );
+    return;
+  }
+
+  // Có playlist -> hỏi muốn lưu vào playlist nào
+  final chosen = await _pickPlaylistId(context);
+  if (!mounted) return;
+
+  if (chosen == null) {
+    // user bấm huỷ => giữ trong library
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Đã thêm ${res.importedTrackIds.length} file vào thư viện')),
+    );
+    return;
+  }
+
+  await widget.logic.addManyToPlaylist(chosen, res.importedTrackIds);
+  if (!mounted) return;
+
+  final plName = widget.logic.playlists.firstWhere((p) => p.id == chosen).name;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('Đã lưu ${res.importedTrackIds.length} file vào "$plName"')),
+  );
+}
+Future<String?> _pickPlaylistId(BuildContext context) async {
+  final pls = widget.logic.playlists.where((p) => !p.isSpecial).toList();
+  return showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
+    shape: Theme.of(context).bottomSheetTheme.shape,
+    builder: (_) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Theme.of(context).dividerColor,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ListTile(
+            title: const Text('Lưu vào playlist nào?'),
+            subtitle: const Text('Huỷ = chỉ lưu vào thư viện'),
+            trailing: IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          ...pls.map((pl) => ListTile(
+                leading: const Icon(Icons.playlist_play_rounded),
+                title: Text(pl.name),
+                onTap: () => Navigator.pop(context, pl.id),
+              )),
+          const SizedBox(height: 12),
+        ],
+      ),
+    ),
+  );
+}
 
   @override
   void initState() {
     super.initState();
     widget.logic.addListener(_rebuild);
+    // Nhận file khi app đang chạy (share vào app)
+_shareSub = ReceiveSharingIntent.instance.getMediaStream().listen((files) async {
+  await _handleIncomingShared(files);
+  ReceiveSharingIntent.instance.reset();
+
+});
+
+// Nhận file khi app đang tắt, mở lên từ share
+ReceiveSharingIntent.instance.getInitialMedia().then((files) async {
+  if (_handledInitialShare) return;
+  _handledInitialShare = true;
+  await _handleIncomingShared(files);
+  ReceiveSharingIntent.instance.reset();
+
+});
+
   }
 
-  @override
-  void dispose() {
-    widget.logic.removeListener(_rebuild);
-    super.dispose();
-  }
+ @override
+void dispose() {
+  _shareSub?.cancel();
+  widget.logic.removeListener(_rebuild);
+  super.dispose();
+}
+
 
   void _rebuild() => setState(() {});
 

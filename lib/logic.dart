@@ -516,6 +516,17 @@ class PlayerHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     await super.stop();
   }
 }
+class ImportSharedResult {
+  final List<String> importedTrackIds;
+  final int skippedExisting;
+  final int skippedInvalid;
+
+  const ImportSharedResult({
+    required this.importedTrackIds,
+    required this.skippedExisting,
+    required this.skippedInvalid,
+  });
+}
 
 /// ===============================
 /// AppLogic (single file state)
@@ -720,44 +731,43 @@ class AppLogic extends ChangeNotifier {
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    settings = settings.copyWith(themeMode: mode);
+  final prevMode = settings.themeMode; // giữ mode cũ
 
-    await _prefs.setString(
-      _kPrefTheme,
-      switch (mode) {
-        ThemeMode.light => 'light',
-        ThemeMode.system => 'system',
-        _ => 'dark'
-      },
-    );
+  settings = settings.copyWith(themeMode: mode);
 
-    // 🔥 FIX: nếu user chưa custom theme (palette = default của mode cũ)
-    // thì rebase lại defaults theo mode mới để background/surface đổi đúng.
-    final oldIsDark = settings.themeMode == ThemeMode.dark ||
-        settings.themeMode == ThemeMode.system;
+  await _prefs.setString(
+    _kPrefTheme,
+    switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.system => 'system',
+      _ => 'dark'
+    },
+  );
 
-    final newIsDark = mode == ThemeMode.dark || mode == ThemeMode.system;
+  final oldIsDark = (prevMode == ThemeMode.dark || prevMode == ThemeMode.system);
+  final newIsDark = (mode == ThemeMode.dark || mode == ThemeMode.system);
 
-    final currentCfg = settings.themeConfig;
-    final defaultOld = ThemeConfig.defaults(darkDefault: oldIsDark);
+  final currentCfg = settings.themeConfig;
+  final defaultOld = ThemeConfig.defaults(darkDefault: oldIsDark);
 
-    bool isStillDefault = true;
-    for (final k in ThemeConfig.keys) {
-      if (currentCfg.colors[k] != defaultOld.colors[k]) {
-        isStillDefault = false;
-        break;
-      }
+  bool isStillDefault = true;
+  for (final k in ThemeConfig.keys) {
+    if (currentCfg.colors[k] != defaultOld.colors[k]) {
+      isStillDefault = false;
+      break;
     }
-
-    if (isStillDefault) {
-      settings = settings.copyWith(
-        themeConfig: ThemeConfig.defaults(darkDefault: newIsDark),
-      );
-      await _persistThemeConfig();
-    }
-
-    notifyListeners();
   }
+
+  if (isStillDefault) {
+    settings = settings.copyWith(
+      themeConfig: ThemeConfig.defaults(darkDefault: newIsDark),
+    );
+    await _persistThemeConfig();
+  }
+
+  notifyListeners();
+}
+
 
   Future<void> setAppTitle(String title) async {
     final t = title.trim().isEmpty ? 'Local Player' : title.trim();
@@ -834,6 +844,12 @@ class AppLogic extends ChangeNotifier {
       if (!await d.exists()) await d.create(recursive: true);
     }
   }
+Future<void> addManyToPlaylist(String playlistId, List<String> trackIds) async {
+  for (final id in trackIds) {
+    await addToPlaylist(playlistId, id);
+  }
+  await _loadAllFromDb();
+}
 
   Future<void> _initDb() async {
     final dbPath = p.join(_rootDir.path, 'app.db');
@@ -987,6 +1003,84 @@ class AppLogic extends ChangeNotifier {
 
     notifyListeners();
   }
+  Future<ImportSharedResult> importSharedFiles(List<String> paths) async {
+  int skippedExisting = 0;
+  int skippedInvalid = 0;
+  final imported = <String>[];
+
+  for (final srcPath in paths) {
+    try {
+      if (srcPath.trim().isEmpty) {
+        skippedInvalid++;
+        continue;
+      }
+
+      final ext = p.extension(srcPath).toLowerCase();
+      if (ext != '.mp3' && ext != '.m4a') {
+        skippedInvalid++;
+        continue;
+      }
+
+      final file = File(srcPath);
+      if (!await file.exists()) {
+        skippedInvalid++;
+        continue;
+      }
+
+      final stat = await file.stat();
+      final signature = '${p.basename(srcPath)}::${stat.size}';
+
+      final exists = await _db!.query(
+        'tracks',
+        where: 'signature=?',
+        whereArgs: [signature],
+        limit: 1,
+      );
+      if (exists.isNotEmpty) {
+        skippedExisting++;
+        continue;
+      }
+
+      final id = _uuid();
+      final safeName = _safeFileName(p.basename(srcPath));
+      final destPath = p.join(audioDir.path, '${id}_$safeName');
+
+      await file.copy(destPath);
+
+      final durationMs = await _probeDurationMs(destPath);
+
+      final title = p.basenameWithoutExtension(safeName);
+      final row = TrackRow(
+        id: id,
+        title: title,
+        artist: 'Unknown',
+        localPath: destPath,
+        signature: signature,
+        coverPath: null,
+        durationMs: durationMs,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      );
+
+      await _db!.insert('tracks', row.toMap());
+      imported.add(id);
+    } catch (_) {
+      skippedInvalid++;
+    }
+  }
+
+  if (imported.isNotEmpty) {
+    await _loadAllFromDb();
+    if (_current == null && library.isNotEmpty) {
+      await setCurrent(library.first.id, autoPlay: false);
+    }
+  }
+
+  return ImportSharedResult(
+    importedTrackIds: imported,
+    skippedExisting: skippedExisting,
+    skippedInvalid: skippedInvalid,
+  );
+}
 
   /// ===============================
   /// Import audio (mp3/m4a) + dedupe + copy into Documents
@@ -1773,52 +1867,60 @@ class AppLogic extends ChangeNotifier {
   /// BACKUP → EXPORT ZIP (STREAMING VERSION)
   /// ===============================
   Future<String?> exportLibraryToZip() async {
-    if (isBackingUp) return 'Đang backup, vui lòng chờ...';
+  if (isBackingUp) return 'Đang backup, vui lòng chờ...';
 
-    isBackingUp = true;
-    notifyListeners();
+  isBackingUp = true;
+  notifyListeners();
 
-    try {
-      final root = Directory(_rootDir.path);
-      if (!await root.exists()) return 'Không tìm thấy dữ liệu';
+  try {
+    final root = Directory(_rootDir.path);
+    if (!await root.exists()) return 'Không tìm thấy dữ liệu';
 
-      // Save to temporary directory instead of rootDir to avoid self-inclusion
-      final tmpDir = await getTemporaryDirectory();
-      final exportPath = p.join(
-        tmpDir.path,
-        'backup_${DateTime.now().millisecondsSinceEpoch}.zip',
-      );
+    final tmpDir = await getTemporaryDirectory();
+    final exportPath = p.join(
+      tmpDir.path,
+      'backup_${DateTime.now().millisecondsSinceEpoch}.zip',
+    );
 
-      // Create streaming encoder
-      final encoder = ZipFileEncoder();
-      encoder.create(exportPath);
+    final encoder = ZipFileEncoder();
+    encoder.create(exportPath);
 
-      final files = root.listSync(recursive: true, followLinks: false);
+    // ✅ Async listing: không block UI như listSync
+    final stream = root.list(recursive: true, followLinks: false);
 
-      for (final f in files) {
-        if (f is File) {
-          // Skip .zip files
-          final ext = p.extension(f.path).toLowerCase();
-          if (ext == '.zip') continue;
+    int processed = 0;
+    await for (final entity in stream) {
+      if (entity is! File) continue;
 
-          // Skip restore lock
-          final name = p.basename(f.path);
-          if (name == '.restore_lock') continue;
+      // Skip .zip
+      final ext = p.extension(entity.path).toLowerCase();
+      if (ext == '.zip') continue;
 
-          final rel = p.relative(f.path, from: _rootDir.path);
-          encoder.addFile(f, rel);
-        }
+      // Skip restore lock
+      if (p.basename(entity.path) == '.restore_lock') continue;
+
+      final rel = p.relative(entity.path, from: _rootDir.path);
+
+      // ✅ add file
+      encoder.addFile(entity, rel);
+
+      // ✅ yield UI mỗi N file để không “đứng hình”
+      processed++;
+      if (processed % 10 == 0) {
+        await Future<void>.delayed(Duration.zero);
       }
-
-      encoder.close();
-      return exportPath;
-    } catch (e) {
-      return e.toString();
-    } finally {
-      isBackingUp = false;
-      notifyListeners();
     }
+
+    encoder.close();
+    return exportPath;
+  } catch (e) {
+    return e.toString();
+  } finally {
+    isBackingUp = false;
+    notifyListeners();
   }
+}
+
 
   /// ===============================
   /// RESTORE → IMPORT ZIP

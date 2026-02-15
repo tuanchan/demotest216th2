@@ -13,6 +13,9 @@ dependencies:
   image_picker: ^1.1.2
   ffmpeg_kit_flutter_new_min_gpl: ^2.1.1
 
+  receive_sharing_intent: ^1.8.0
+
+
   # 🔊 Audio
   just_audio: ^0.9.42
   audio_service: ^0.18.15
